@@ -1,0 +1,68 @@
+name: Local Windows Workflow
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      
+    - name: Install PowerShell
+      if: runner.os == 'Windows'
+      run: |
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
+        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+        choco install powershell -y
+        
+    - name: Get Public IP
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $publicIP = (Invoke-WebRequest -Uri 'https://api.ipify.org').Content
+        Write-Output "Public IP Address: $publicIP"
+        
+    - name: Download and Install AnyDesk
+      run: |
+          $url = 'https://download.anydesk.com/AnyDesk.exe'
+          $downloadPath = 'C:\Temp\AnyDesk.exe'
+
+          try {
+            Invoke-WebRequest -Uri $url -OutFile $downloadPath
+          } catch {
+            Write-Error "Failed to download AnyDesk: $_"
+            exit 1
+          }
+
+          try {
+            Start-Process -FilePath $downloadPath -ArgumentList '/S' -Wait
+          } catch {
+            Write-Error "Failed to install AnyDesk: $_"
+            exit 1
+          }
+
+          try {
+            Remove-Item $downloadPath
+          } catch {
+            Write-Warning "Failed to remove downloaded file: $_"
+          } 
+          
+    - name: Start AnyDesk
+      if: runner.os == 'Windows'
+      run: |
+        "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" --silent
+        
+    - name: Display AnyDesk connection details
+      if: runner.os == 'Windows'
+      run: |
+        echo "Connect to this machine using AnyDesk with the following details:"
+        echo "ID: YOUR_MACHINE_ID"
+        echo "IP Address: $publicIP"
